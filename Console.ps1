@@ -1,12 +1,13 @@
 function region1CLI { 
-    $modèleserver = ""#Emplacement du disque parent serveur 
-    $modèlecli = ""#Emplamcent du disque parent client
+    $modèleserver = "D:\sources\Base_2016_14393.161220_StdGUI_G2_upd28022017.vhdx"
+    $modèlecli = "D:\sources\Master_Win10_20h2_x86_G1.vhdx"
     [int]$iteration = 1
     [int]$iteration2 = 1
     [int]$iteration3 = 1
     [int]$compteur = 0
     [int]$compteur2 = 0
     [int]$compteur3 = 0
+    $generation = 0
     while ($compteur,$compteur2,$compteur3  -lt 5){ #Tant que le compteur est inferieur à 5 la fonction continuera 
     $prefixe = "CLI" , "SRV" , "RTR" | Select-Object -First 1 #Le prefixe commencera par CLI
     $nomfinalevm = $prefixe+$iteration #Le nom finale de la vm sera CLI1 et fera une iteration de 1 pour creer CLI2,3,4 et 5.
@@ -15,9 +16,11 @@ function region1CLI {
     #Le disque de differenciation se basera sur le modèle  $modèlecli = "D:\sources\Master_Win10_20h2_x86_G1.vhdx" 
     #et sera rediriger sue les dossiers que j'ai crée précèdemment
     New-VHD -ParentPath $modèlecli -Path "D:\$nomfinalevm\VHD\$nomfinalevm.vhdx" -Differencing
+    if ($prefixe -match "CLI"){$generation=1}elseif($prefixe -notmatch "CLI"){"Cette generation n'existe pas; Merçi de supprimer vos machines avec l'option 2" }
     #La machine sera stocker à cette endroit si c'est à dire D:\$nomfinalevm\VM accompagné du didsque de diff rée précèdemment  
-    New-VM -Name $nomfinalevm -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm\VM"  -VHDPath "D:\$nomfinalevm\VHD\$nomfinalevm.vhdx" -Generation 1 
+    New-VM -Name $nomfinalevm -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm\VM"  -VHDPath "D:\$nomfinalevm\VHD\$nomfinalevm.vhdx" -Generation $generation 
     #Pour finir , il yaura une iteration pour creer 4 autre machines avec mlememe principe .
+
     $iteration++
     $compteur++
      $prefixe2 = "CLI" , "SRV" , "RTR" | Select-Object -Last 1 #Le prefixe commencera par CLI
@@ -28,7 +31,8 @@ function region1CLI {
     #et sera rediriger sue les dossiers que j'ai crée précèdemment
     New-VHD -ParentPath $modèleserver -Path "D:\$nomfinalevm2\VHD\$nomfinalevm2.vhdx" -Differencing
     #La machine sera stocker à cette endroit si c'est à dire D:\$nomfinalevm\VM accompagné du didsque de diff rée précèdemment  
-    New-VM -Name $nomfinalevm2 -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm2\VM"  -VHDPath "D:\$nomfinalevm2\VHD\$nomfinalevm2.vhdx" -Generation 2
+    if ($prefixe -eq "RTR"){$generation=2}elseif($prefixe2 -notmatch "RTR"){"Cette generation n'existe pas; Merçi de supprimer vos machines avec l'option 2" }
+    New-VM -Name $nomfinalevm2 -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm2\VM"  -VHDPath "D:\$nomfinalevm2\VHD\$nomfinalevm2.vhdx" -Generation $generation
     #Pour finir , il yaura une iteration pour creer 4 autre machines avec mlememe principe .
     $iteration2++
     $compteur2++
@@ -39,8 +43,9 @@ function region1CLI {
     #Le disque de differenciation se basera sur le modèle  $modèlecli = "D:\sources\Master_Win10_20h2_x86_G1.vhdx" 
     #et sera rediriger sue les dossiers que j'ai crée précèdemment
     New-VHD -ParentPath $modèleserver -Path "D:\$nomfinalevm3\VHD\$nomfinalevm3.vhdx" -Differencing
+     if ($prefixe -match "SRV"){$generation=2}elseif($prefixe3 -notmatch "SRV"){"Cette generation n'existe pas; Merçi de supprimer vos machines avec l'option 2" }
     #La machine sera stocker à cette endroit si c'est à dire D:\$nomfinalevm\VM accompagné du didsque de diff rée précèdemment  
-    New-VM -Name $nomfinalevm3 -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm3\VM"  -VHDPath "D:\$nomfinalevm3\VHD\$nomfinalevm3.vhdx" -Generation 2
+    New-VM -Name $nomfinalevm3 -MemoryStartupBytes 1GB  -Path "D:\$nomfinalevm3\VM"  -VHDPath "D:\$nomfinalevm3\VHD\$nomfinalevm3.vhdx" -Generation $generation
     #Pour finir , il yaura une iteration pour creer 4 autre machines avec mlememe principe .
     $iteration3++
     $compteur3++
@@ -57,6 +62,51 @@ Remove-VM -Name *SRV* -Force
 Remove-Item -Path "D:\*SRV*" -Force -Recurse
 Clear-RecycleBin -Force
 Clear-Host
+}
+function nbnvwitch {
+
+$SWITCH1 = New-VMSwitch -Name ARC-CLI -SwitchType Private
+$SWITCH2 =New-VMSwitch -Name BOU-LAN -SwitchType Private
+$SWITCH3 = New-VMSwitch -name "WAN" -NetAdapterName Ethernet -AllowManagementOS $true
+
+$SWITCH1
+$SWITCH2
+$SWITCH3
+
+
+
+}
+function nbnetworkcard {
+Get-VM -Name *
+$nbrneworkcard = 0
+$nbrecardvoulue = 0
+$numeroduswitch = 0
+$nbrecardvoulue = Read-Host "J'aurais besoin de savpor combien de cartes réseau il vous faudrait"
+$Choix = Read-Host "Est ce que vous avez besoin de SWITCH(s) client;routeur et serveur (CLI ; RTR ou BIEN SRV)  "
+$nomvm = Read-Host "Donnez moi le nom de la VM s'il vous plait  "
+While($nbrneworkcard -lt $nbrecardvoulue){
+if ($choix -like "SRV"){
+Add-VMNetworkAdapter -Name SRV+$numeroduswitch -SwitchName BOU-LAN -VMName $nomvm
+}
+elseif($choix -like "CLI"){Add-VMNetworkAdapter -Name CLI+$numeroduswitch -SwitchName ARC-CLI -VMName $nomvm}
+elseif($choix -like "RTR"){Add-VMNetworkAdapter -Name CLI+$numeroduswitch -SwitchName WAN -VMName $nomvm}
+else{"Je ne comprend pas votre requete"}
+$nbrneworkcard++
+
+}
+function nbnvwitchsup {
+
+$SWITCH1 = Remove-VMSwitch -Name ARC-CLI 
+$SWITCH2 = Remove-VMSwitch -Name BOU-LAN 
+$SWITCH3 = Remove-VMSwitch -Name "WAN" 
+
+$SWITCH1
+$SWITCH2
+$SWITCH3
+
+
+
+}
 }
 
 
@@ -95,7 +145,10 @@ while ($enterorexit -notmatch 'quitter')#Dans le cas d'une chaine de caractere
     Write-Host '--------------------------------------' 
     Write-Host 'Choix 1 :CONSTRUCTION DU LABORATOIRE VIRTUELLE' 
     Write-Host 'Choix 2 :SUPPRESSION DU LABORATOIRE VIRTUELLE' 
-    Write-Host 'Choix 3 :QUITTER LE PROGRAMME ' 
+    Write-Host 'Choix 3 :Ajout des switchs virtuelles '
+    Write-Host 'Choix 4 : Ajout dadaptateur virtuelles '
+    Write-Host 'Choix 5 :QUITTER LE PROGRAMME ' 
+    Write-Host 'Choix 6 :QUITTER LE PROGRAMME '
     Write-Host '--------------------------------------' 
     $enterorexit =  Read-Host 'Menu du Script '
     switch ( $enterorexit )
@@ -103,9 +156,10 @@ while ($enterorexit -notmatch 'quitter')#Dans le cas d'une chaine de caractere
     
     1 { region1CLI }
     2 { region2SRV}
-    3 { sortie
-
-        }
+    3 { nbnvwitch}
+    4 { nbnetworkcard }
+    5 { nbnvwitchsup } 
+    6 { sortie}
     
     }
 
